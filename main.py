@@ -473,19 +473,13 @@ def main(page: ft.Page):
         bgcolor=colors.with_opacity(0.45, colors.GREY_900),
     )
 
-    # --- Fondo con imagen repetida ---
-    assets_img = os.path.join(os.getcwd(), "assets", "fondo.jpg")
-    if os.path.exists(assets_img):
-        background_image = ft.Image(
-            src="fondo.jpg",
-            fit=ft.ImageFit.NONE,
-            repeat=ft.ImageRepeat.REPEAT,
-            opacity=1.0,
-            gapless_playback=True,
-            expand=True,
-        )
-    else:
-        background_image = None
+    # --- Fondo con imagen translúcida ---
+    background_image = ft.Image(
+        src="fondo.jpg",
+        fit=ft.ImageFit.COVER,
+        opacity=0.15,  # Translúcida (0.0 transparente, 1.0 opaco)
+        expand=True,
+    )
 
     main_content = ft.Row(
         [
@@ -496,17 +490,20 @@ def main(page: ft.Page):
         expand=True,
     )
 
-    if background_image is not None:
-        root = ft.Stack(
+    # Agregar margen inferior a la ventana
+    root = ft.Column([
+        ft.Stack(
             controls=[
                 background_image,
                 main_content,
             ],
             expand=True,
-        )
-        page.add(root)
-    else:
-        page.add(main_content)
+        ),
+        ft.Container(height=20, bgcolor=colors.BLACK),  # Margen inferior
+    ], expand=True)
+
+    # --- Agrega el layout principal ---
+    page.add(root)
 
 if __name__ == "__main__":
     # Asegúrate de tener la carpeta "assets" con tu imagen "fondo.jpg"

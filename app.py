@@ -448,17 +448,37 @@ def main(page: ft.Page):
         bgcolor=colors.GREY_900,
     )
 
-    # --- Agrega el layout principal ---
-    page.add(
-        ft.Row(
-            [
-                rail,
-                ft.VerticalDivider(width=1),
-                content_area,
+    # --- Fondo con imagen translúcida ---
+    background_image = ft.Image(
+        src="fondo.jpg",
+        fit=ft.ImageFit.COVER,
+        opacity=0.15,  # Translúcida (0.0 transparente, 1.0 opaco)
+        expand=True,
+    )
+
+    main_content = ft.Row(
+        [
+            rail,
+            ft.VerticalDivider(width=1),
+            content_area,
+        ],
+        expand=True,
+    )
+
+    # Agregar margen inferior a la ventana
+    root = ft.Column([
+        ft.Stack(
+            controls=[
+                background_image,
+                main_content,
             ],
             expand=True,
-        )
-    )
+        ),
+        ft.Container(height=20, bgcolor=colors.BLACK),  # Margen inferior
+    ], expand=True)
+
+    # --- Agrega el layout principal ---
+    page.add(root)
 
 
 if __name__ == "__main__":
