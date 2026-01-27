@@ -475,7 +475,7 @@ def main(page: ft.Page):
 
     # --- Fondo con imagen translúcida ---
     background_image = ft.Image(
-        src="fondo.jpg",
+        src="fondo.png",
         fit=ft.ImageFit.COVER,
         opacity=0.15,  # Translúcida (0.0 transparente, 1.0 opaco)
         expand=True,
