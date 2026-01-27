@@ -198,6 +198,15 @@ def main(page: ft.Page):
             delete_all_btn.update()
             return
 
+        # Mostrar indicador de carga
+        duplicates_counter.content.controls[1].value = "🔍 Buscando duplicados..."
+        duplicates_counter.content.controls[0].name = icons.HOURGLASS_EMPTY
+        duplicates_counter.content.controls[0].color = colors.BLUE_400
+        duplicates_counter.bgcolor = colors.with_opacity(0.15, colors.BLUE)
+        duplicates_counter.visible = True
+        duplicates_counter.update()
+
+        # Ejecutar búsqueda (esto ahora es más rápido con las optimizaciones)
         duplicates = find_duplicates(folder)
         state["current_duplicates"] = duplicates
         duplicates_list.controls.clear()

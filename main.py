@@ -164,6 +164,14 @@ def main(page: ft.Page):
             delete_all_btn.update()
             return
 
+        # Mostrar indicador de búsqueda
+        duplicates_counter.content.controls[1].value = "🔍 Buscando duplicados..."
+        duplicates_counter.content.controls[0].name = icons.HOURGLASS_EMPTY
+        duplicates_counter.content.controls[0].color = colors.BLUE_400
+        duplicates_counter.bgcolor = colors.with_opacity(0.15, colors.BLUE)
+        duplicates_counter.visible = True
+        duplicates_counter.update()
+
         duplicates = find_duplicates(folder)
         state["current_duplicates"] = duplicates
 
@@ -477,7 +485,7 @@ def main(page: ft.Page):
     background_image = ft.Image(
         src="fondo.png",
         fit=ft.ImageFit.COVER,
-        opacity=0.15,  # Translúcida (0.0 transparente, 1.0 opaco)
+        opacity=0.55,  # Translúcida (0.0 transparente, 1.0 opaco)
         expand=True,
     )
 
