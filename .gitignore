@@ -1,0 +1,48 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Archivos temporales
+*.tmp
+*.bak
+test_duplicados/
+_tmp_org_test/
+
+# Archivos compilados
+*.o
+*.so
+*.dll
+*.exe
+
+# Logs
+*.log
+
+# Variables de entorno
+.env
+.env.local
+
+# Node (si se usa en el futuro)
+node_modules/
+package-lock.json
+
+# Caché de pip
+.pip-cache/
+
+# Archivos del proyecto que no deben versionarse
+archivos/
+finalcut/
