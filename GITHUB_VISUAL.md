@@ -1,4 +1,4 @@
-# 📤 GITHUB BACKUP - PASOS VISUALES
+git commit -m "Respaldo: App Flet con eliminación de duplicados y organización de archivos"# 📤 GITHUB BACKUP - PASOS VISUALES
 
 ## 🎯 OBJETIVO: Respaldo Privado en GitHub en 5 minutos
 
