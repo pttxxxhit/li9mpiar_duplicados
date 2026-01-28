@@ -2,11 +2,14 @@ import flet as ft
 from flet import Colors as colors, Icons as icons
 import os
 import shutil
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from borrar_duplicados import find_duplicates, delete_file
 
 
-def organize_folder(root_folder: str) -> None:
-    """Organiza archivos en subcarpetas según su extensión.
+def organize_folder(root_folder):
+    """
+    Organiza archivos en subcarpetas según su extensión.
     Crea subcarpetas: Imagenes, Videos, Documentos, Datasets, Comprimidos, Otros.
     No desciende dentro de las carpetas creadas para evitar bucles.
     """
@@ -109,6 +112,60 @@ def main(page: ft.Page):
         ),
     )
 
+    async def delete_files_async(files_to_delete):
+        """Elimina archivos en paralelo sin bloquear la UI"""
+        ok = fail = 0
+        max_workers = min(8, len(files_to_delete))
+
+        # Cambiar botón INMEDIATAMENTE
+        delete_all_btn.disabled = True
+        delete_all_btn.bgcolor = colors.ORANGE_900
+        delete_all_btn.text = "🔄 Eliminando..."
+        delete_all_btn.update()
+
+        if len(files_to_delete) > 1:
+            # Borrado paralelo
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(delete_file, dup): dup for dup in files_to_delete}
+                for future in as_completed(futures):
+                    try:
+                        if future.result():
+                            ok += 1
+                        else:
+                            fail += 1
+                    except Exception as ex:
+                        print(f"Error: {ex}")
+                        fail += 1
+        else:
+            # Borrado secuencial
+            for dup in files_to_delete:
+                try:
+                    if delete_file(dup):
+                        ok += 1
+                    else:
+                        fail += 1
+                except Exception as ex:
+                    print(f"Error: {ex}")
+                    fail += 1
+
+        # Refrescar la UI
+        scan_and_show_duplicates()
+
+        # Mensaje de resultado
+        if fail == 0:
+            msg = f"✓ Eliminados {ok} duplicados correctamente"
+            snack_color = colors.GREEN_700
+        else:
+            msg = f"⚠ Eliminados {ok}. Fallaron {fail}"
+            snack_color = colors.ORANGE_700
+
+        page.snack_bar = ft.SnackBar(
+            content=ft.Text(msg, color=colors.WHITE, size=16),
+            bgcolor=snack_color,
+        )
+        page.snack_bar.open = True
+        page.update()
+
     def perform_delete_all(_e=None):
         if not state["current_duplicates"]:
             page.snack_bar = ft.SnackBar(
@@ -128,39 +185,9 @@ def main(page: ft.Page):
         def confirm_delete(_e):
             dialog.open = False
             page.update()
-
-            delete_all_btn.disabled = True
-            delete_all_btn.text = "Eliminando..."
-            delete_all_btn.update()
-
+            # Ejecutar el borrado asincronamente
             to_delete = [dup for dup, _ in state["current_duplicates"]]
-            ok = fail = 0
-            for dup in to_delete:
-                try:
-                    if delete_file(dup):
-                        ok += 1
-                    else:
-                        fail += 1
-                except Exception:
-                    fail += 1
-
-            # Refrescar
-            scan_and_show_duplicates()
-
-            # Mensaje de resultado
-            if fail == 0:
-                msg = f"✓ Eliminados {ok} duplicados correctamente"
-                snack_color = colors.GREEN_700
-            else:
-                msg = f"⚠ Eliminados {ok}. Fallaron {fail}"
-                snack_color = colors.ORANGE_700
-
-            page.snack_bar = ft.SnackBar(
-                content=ft.Text(msg, color=colors.WHITE, size=16),
-                bgcolor=snack_color,
-            )
-            page.snack_bar.open = True
-            page.update()
+            page.run_task(delete_files_async, to_delete)
 
         # Diálogo de confirmación
         dialog = ft.AlertDialog(
@@ -198,11 +225,17 @@ def main(page: ft.Page):
             delete_all_btn.update()
             return
 
-        # Mostrar indicador de carga
-        duplicates_counter.content.controls[1].value = "🔍 Buscando duplicados..."
+        # Actualizar texto del botón mientras busca
+        delete_all_btn.disabled = True
+        delete_all_btn.text = "🔍 Buscando duplicados..."
+        delete_all_btn.update()
+
+        # Cambiar el ícono y color del contador
         duplicates_counter.content.controls[0].name = icons.HOURGLASS_EMPTY
         duplicates_counter.content.controls[0].color = colors.BLUE_400
+        duplicates_counter.content.controls[1].value = "Buscando duplicados..."
         duplicates_counter.bgcolor = colors.with_opacity(0.15, colors.BLUE)
+        duplicates_counter.border = ft.border.all(2, colors.BLUE_700)
         duplicates_counter.visible = True
         duplicates_counter.update()
 
@@ -232,6 +265,7 @@ def main(page: ft.Page):
             delete_all_btn.visible = True
             delete_all_btn.disabled = False
             delete_all_btn.text = f"Eliminar todos ({len(duplicates)})"
+            delete_all_btn.bgcolor = colors.RED_900
 
             # Crear items de la lista
             for idx, (dup, orig) in enumerate(duplicates, 1):
@@ -297,21 +331,21 @@ def main(page: ft.Page):
             page.snack_bar.open = True
             page.update()
 
-    def handle_folder_picker(e: ft.FilePickerResultEvent):
+    def handle_folder_picker(e):
         if e.path:
             state["selected_folder"] = e.path
             selected_dir_text.value = f"Carpeta seleccionada: {e.path}"
             selected_dir_text.update()
             scan_and_show_duplicates()
 
-    folder_picker = ft.FilePicker(on_result=handle_folder_picker)
+    folder_picker = ft.FilePicker(on_change=handle_folder_picker)
     page.overlay.append(folder_picker)
 
     duplicate_files_view = ft.Container(
         content=ft.Column([
             ft.Text("🗑️ Eliminar Archivos Duplicados", color=colors.BLUE_200, size=28, weight=ft.FontWeight.BOLD),
             ft.Text(
-                "Encuentra y elimina archivos duplicados basándose en su contenido (hash MD5)",
+                "Encuentra y elimina archivos duplicados basándose en su contenido (hash SHA256)",
                 color=colors.GREY_400,
                 size=13,
             ),
@@ -355,7 +389,7 @@ def main(page: ft.Page):
     organize_selected_text = ft.Text("No se ha seleccionado ninguna carpeta", color=colors.BLUE_200)
     organize_result_text = ft.Text("", color=colors.BLUE_200)
 
-    def handle_organize_folder_picker(e: ft.FilePickerResultEvent):
+    def handle_organize_folder_picker(e):
         if e.path:
             state["organize_input_folder"] = e.path
             organize_selected_text.value = f"Carpeta a organizar: {e.path}"
@@ -379,7 +413,7 @@ def main(page: ft.Page):
         page.snack_bar = ft.SnackBar(ft.Text(organize_result_text.value), open=True)
         page.update()
 
-    organize_picker = ft.FilePicker(on_result=handle_organize_folder_picker)
+    organize_picker = ft.FilePicker(on_change=handle_organize_folder_picker)
     page.overlay.append(organize_picker)
 
     organize_files_view = ft.Container(
@@ -458,12 +492,19 @@ def main(page: ft.Page):
     )
 
     # --- Fondo con imagen translúcida ---
-    background_image = ft.Image(
-        src="fondo.png",
-        fit=ft.ImageFit.COVER,
-        opacity=0.15,  # Translúcida (0.0 transparente, 1.0 opaco)
-        expand=True,
-    )
+    try:
+        background_image = ft.Image(
+            src="assets/fondo.png",
+            fit=ft.ImageFit.COVER,
+            opacity=0.15,  # Translúcida (0.0 transparente, 1.0 opaco)
+            expand=True,
+        )
+    except:
+        # Si la imagen no existe, usar fondo de color
+        background_image = ft.Container(
+            expand=True,
+            bgcolor=colors.BLACK,
+        )
 
     main_content = ft.Row(
         [
@@ -492,4 +533,3 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     ft.app(target=main)
-
