@@ -2,11 +2,11 @@ import flet as ft
 from flet import Colors as colors, Icons as icons
 from borrar_duplicados import find_duplicates, delete_file
 from app import organize_folder
+from cambiar_tamaño import resize_single_image
 
 import os
 import threading
 import time
-import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def main(page: ft.Page):
@@ -101,44 +101,9 @@ def main(page: ft.Page):
         visible=False,
     )
 
-    async def delete_selected_async(to_delete):
-        # Deshabilitar botón y mostrar estado
-        delete_all_btn.disabled = True
-        delete_all_btn.bgcolor = colors.ORANGE_900
-        delete_all_btn.text = "🔄 Eliminando..."
-        delete_all_btn.update()
-
-        # Ejecutar borrado en threads del event loop
-        results = []
-        for path in to_delete:
-            results.append(asyncio.to_thread(delete_file, path))
-
-        ok = fail = 0
-        for res in await asyncio.gather(*results, return_exceptions=True):
-            if isinstance(res, Exception) or res is False:
-                fail += 1
-            else:
-                ok += 1
-
-        # Refrescar UI
-        scan_and_show_duplicates()
-
-        if fail == 0:
-            msg = f"✓ Eliminados {ok} duplicados correctamente"
-            snack_color = colors.GREEN_700
-        else:
-            msg = f"⚠ Eliminados {ok}. Fallaron {fail}"
-            snack_color = colors.ORANGE_700
-
-        page.snack_bar = ft.SnackBar(
-            content=ft.Text(msg, color=colors.WHITE, size=16),
-            bgcolor=snack_color,
-        )
-        page.snack_bar.open = True
-        page.update()
-
     def perform_delete_all(e=None):
         """Elimina los archivos seleccionados directamente"""
+        # Obtener solo los archivos seleccionados
         to_delete = [file_path for file_path, is_selected in state["selected_for_deletion"].items() if is_selected]
 
         if not to_delete:
@@ -150,8 +115,65 @@ def main(page: ft.Page):
             page.update()
             return
 
-        # Ejecutar eliminación async en el hilo principal de Flet
-        page.run_task(delete_selected_async, to_delete)
+        # Cambiar botón inmediatamente
+        delete_all_btn.disabled = True
+        delete_all_btn.bgcolor = colors.ORANGE_900
+        delete_all_btn.text = "🔄 Eliminando..."
+        delete_all_btn.update()
+
+        # Función que elimina y actualiza
+        def delete_and_update():
+            ok = fail = 0
+            max_workers = min(8, len(to_delete))
+
+            # Eliminar archivos en paralelo o secuencial
+            if len(to_delete) > 1:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {executor.submit(delete_file, dup): dup for dup in to_delete}
+                    for future in as_completed(futures):
+                        try:
+                            if future.result():
+                                ok += 1
+                            else:
+                                fail += 1
+                        except Exception:
+                            fail += 1
+            else:
+                for dup in to_delete:
+                    try:
+                        if delete_file(dup):
+                            ok += 1
+                        else:
+                            fail += 1
+                    except Exception:
+                        fail += 1
+
+            time.sleep(0.5)
+
+            # Actualizar UI
+            try:
+                scan_and_show_duplicates()
+
+                if fail == 0:
+                    msg = f"✓ Eliminados {ok} duplicados correctamente"
+                    snack_color = colors.GREEN_700
+                else:
+                    msg = f"⚠ Eliminados {ok}. Fallaron {fail}"
+                    snack_color = colors.ORANGE_700
+
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(msg, color=colors.WHITE, size=16),
+                    bgcolor=snack_color,
+                )
+                page.snack_bar.open = True
+                page.update()
+            except Exception:
+                pass
+
+        # Iniciar thread de eliminación
+        thread = threading.Thread(target=delete_and_update, daemon=True)
+        thread.start()
+
 
     delete_all_btn.on_click = perform_delete_all
 
@@ -335,644 +357,6 @@ def main(page: ft.Page):
             page.snack_bar.open = True
             page.update()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def handle_folder_picker(e: ft.FilePickerResultEvent):
         if e.path:
             state["selected_folder"] = e.path
@@ -1102,10 +486,137 @@ def main(page: ft.Page):
         border_radius=8,
     )
 
-    # --- Definición de vistas mínimas para evitar errores ---
+    # --- Vista: Redimensionar imágenes ---
+    resize_input_text = ft.Text("No se ha seleccionado ningún archivo", color=colors.BLUE_200)
+    resize_output_text = ft.Text("No se ha seleccionado carpeta de salida", color=colors.BLUE_200)
+    resize_result_text = ft.Text("", color=colors.BLUE_200)
+
+    width_input = ft.TextField(label="Ancho", value="800", width=120)
+    height_input = ft.TextField(label="Alto", value="600", width=120)
+
+    def handle_resize_file_picker(e: ft.FilePickerResultEvent):
+        if e.files and len(e.files) > 0:
+            file_path = e.files[0].path
+            state["resize_input_file"] = file_path
+            resize_input_text.value = f"Archivo: {os.path.basename(file_path)}"
+            resize_input_text.update()
+
+    def handle_resize_output_picker(e: ft.FilePickerResultEvent):
+        if e.path:
+            state["resize_output_folder"] = e.path
+            resize_output_text.value = f"Carpeta salida: {e.path}"
+            resize_output_text.update()
+
+    def run_resize(_ev=None):
+        file_in = state.get("resize_input_file") or ""
+        folder_out = state.get("resize_output_folder") or ""
+
+        if not file_in or not os.path.isfile(file_in):
+            resize_result_text.value = "Selecciona un archivo de imagen válido."
+            resize_result_text.color = colors.RED_400
+            resize_result_text.update()
+            return
+        if not folder_out:
+            resize_result_text.value = "Selecciona una carpeta de salida."
+            resize_result_text.color = colors.RED_400
+            resize_result_text.update()
+            return
+        try:
+            width = int(width_input.value.strip())
+            height = int(height_input.value.strip())
+            if width <= 0 or height <= 0:
+                raise ValueError("Dimensiones inválidas")
+        except Exception:
+            resize_result_text.value = "Ingresa un ancho y alto válidos."
+            resize_result_text.color = colors.RED_400
+            resize_result_text.update()
+            return
+
+        def resize_worker():
+            try:
+                result = resize_single_image(file_in, folder_out, width, height)
+                if result:
+                    resize_result_text.value = "Redimensionamiento completado."
+                    resize_result_text.color = colors.GREEN_400
+                else:
+                    resize_result_text.value = "Error al redimensionar la imagen."
+                    resize_result_text.color = colors.RED_400
+            except ValueError as ve:
+                resize_result_text.value = f"Error: {str(ve)}"
+                resize_result_text.color = colors.RED_400
+            except Exception as ex:
+                resize_result_text.value = f"Error al redimensionar: {ex}"
+                resize_result_text.color = colors.RED_400
+            resize_result_text.update()
+            page.snack_bar = ft.SnackBar(ft.Text(resize_result_text.value), open=True)
+            page.update()
+
+        threading.Thread(target=resize_worker, daemon=True).start()
+
+    resize_file_picker = ft.FilePicker(on_result=handle_resize_file_picker)
+    resize_output_picker = ft.FilePicker(on_result=handle_resize_output_picker)
+    page.overlay.extend([resize_file_picker, resize_output_picker])
+
     resize_files_view = ft.Container(
-        content=ft.Text("Vista: Redimensionar imágenes", color=colors.BLUE_200), expand=True
+        content=ft.Column(
+            [
+                ft.Text("Redimensionar imagen", color=colors.BLUE_200, size=24),
+                ft.Row(
+                    [
+                        ft.ElevatedButton(
+                            "Seleccionar archivo",
+                            icon=icons.IMAGE,
+                            on_click=lambda _ev: resize_file_picker.pick_files(
+                                allowed_extensions=["jpg", "jpeg", "png", "bmp", "gif", "tiff", "webp"],
+                                dialog_title="Selecciona una imagen"
+                            ),
+                        ),
+                        resize_input_text,
+                    ],
+                    spacing=10,
+                ),
+                ft.Row(
+                    [
+                        ft.ElevatedButton(
+                            "Carpeta salida",
+                            icon=icons.FOLDER_OPEN,
+                            on_click=lambda _ev: resize_output_picker.get_directory_path(),
+                        ),
+                        resize_output_text,
+                    ],
+                    spacing=10,
+                ),
+                ft.Row(
+                    [
+                        width_input,
+                        height_input,
+                        ft.ElevatedButton(
+                            "Redimensionar",
+                            icon=icons.PHOTO_SIZE_SELECT_LARGE,
+                            bgcolor=colors.BLUE_800,
+                            color=colors.WHITE,
+                            on_click=run_resize,
+                        ),
+                    ],
+                    spacing=10,
+                ),
+                ft.Divider(),
+                resize_result_text,
+                ft.Text(
+                    "Formatos: JPG, PNG, BMP, GIF, TIFF, WEBP. Guarda como nombre_resized.ext",
+                    color=colors.BLUE_200,
+                    size=12,
+                ),
+            ],
+            expand=True,
+        ),
+        expand=True,
+        bgcolor=colors.with_opacity(0.25, colors.BLACK),
+        padding=20,
+        border_radius=8,
     )
+
+    # --- Definición de vistas mínimas para evitar errores ---
     convert_images_view = ft.Container(
         content=ft.Text("Vista: Convertir imágenes", color=colors.BLUE_200), expand=True
     )
