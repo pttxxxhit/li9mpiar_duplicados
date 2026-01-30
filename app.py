@@ -112,7 +112,7 @@ def main(page: ft.Page):
         ),
     )
 
-    async def delete_files_async(files_to_delete):
+    def delete_files_in_thread(files_to_delete):
         """Elimina archivos en paralelo sin bloquear la UI"""
         ok = fail = 0
         max_workers = min(8, len(files_to_delete))
@@ -148,23 +148,27 @@ def main(page: ft.Page):
                     print(f"Error: {ex}")
                     fail += 1
 
-        # Refrescar la UI
-        scan_and_show_duplicates()
+        # Refrescar la UI después de eliminar
+        def update_ui():
+            scan_and_show_duplicates()
 
-        # Mensaje de resultado
-        if fail == 0:
-            msg = f"✓ Eliminados {ok} duplicados correctamente"
-            snack_color = colors.GREEN_700
-        else:
-            msg = f"⚠ Eliminados {ok}. Fallaron {fail}"
-            snack_color = colors.ORANGE_700
+            # Mensaje de resultado
+            if fail == 0:
+                msg = f"✓ Eliminados {ok} duplicados correctamente"
+                snack_color = colors.GREEN_700
+            else:
+                msg = f"⚠ Eliminados {ok}. Fallaron {fail}"
+                snack_color = colors.ORANGE_700
 
-        page.snack_bar = ft.SnackBar(
-            content=ft.Text(msg, color=colors.WHITE, size=16),
-            bgcolor=snack_color,
-        )
-        page.snack_bar.open = True
-        page.update()
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text(msg, color=colors.WHITE, size=16),
+                bgcolor=snack_color,
+            )
+            page.snack_bar.open = True
+            page.update()
+
+        # Actualizar en el thread principal
+        page.run_task(update_ui)
 
     def perform_delete_all(_e=None):
         if not state["current_duplicates"]:
@@ -185,9 +189,10 @@ def main(page: ft.Page):
         def confirm_delete(_e):
             dialog.open = False
             page.update()
-            # Ejecutar el borrado asincronamente
+            # Ejecutar el borrado en un thread separado
             to_delete = [dup for dup, _ in state["current_duplicates"]]
-            page.run_task(delete_files_async, to_delete)
+            thread = threading.Thread(target=delete_files_in_thread, args=(to_delete,), daemon=True)
+            thread.start()
 
         # Diálogo de confirmación
         dialog = ft.AlertDialog(
@@ -331,14 +336,14 @@ def main(page: ft.Page):
             page.snack_bar.open = True
             page.update()
 
-    def handle_folder_picker(e):
+    def handle_folder_picker(e: ft.FilePickerResultEvent):
         if e.path:
             state["selected_folder"] = e.path
             selected_dir_text.value = f"Carpeta seleccionada: {e.path}"
             selected_dir_text.update()
             scan_and_show_duplicates()
 
-    folder_picker = ft.FilePicker(on_change=handle_folder_picker)
+    folder_picker = ft.FilePicker(on_result=handle_folder_picker)
     page.overlay.append(folder_picker)
 
     duplicate_files_view = ft.Container(
@@ -389,7 +394,7 @@ def main(page: ft.Page):
     organize_selected_text = ft.Text("No se ha seleccionado ninguna carpeta", color=colors.BLUE_200)
     organize_result_text = ft.Text("", color=colors.BLUE_200)
 
-    def handle_organize_folder_picker(e):
+    def handle_organize_folder_picker(e: ft.FilePickerResultEvent):
         if e.path:
             state["organize_input_folder"] = e.path
             organize_selected_text.value = f"Carpeta a organizar: {e.path}"
@@ -413,7 +418,7 @@ def main(page: ft.Page):
         page.snack_bar = ft.SnackBar(ft.Text(organize_result_text.value), open=True)
         page.update()
 
-    organize_picker = ft.FilePicker(on_change=handle_organize_folder_picker)
+    organize_picker = ft.FilePicker(on_result=handle_organize_folder_picker)
     page.overlay.append(organize_picker)
 
     organize_files_view = ft.Container(
