@@ -1,0 +1,22 @@
+<!-- AndroidManifest.xml snippet (agrega permisos y declara MainActivity) -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.app">
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Evitar MANAGE_EXTERNAL_STORAGE a menos que sea imprescindible -->
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher">
+
+        <activity android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>
